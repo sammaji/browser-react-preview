@@ -87,6 +87,9 @@ importers:
       '@types/babel__core':
         specifier: ^7.20.5
         version: 7.20.5
+      '@types/babel__traverse':
+        specifier: ^7.28.0
+        version: 7.28.0
       '@types/react':
         specifier: ^19.1.10
         version: 19.1.11
@@ -126,6 +129,9 @@ importers:
       vite-plugin-monaco-editor:
         specifier: ^1.1.0
         version: 1.1.0(monaco-editor@0.52.2)
+      vite-plugin-monaco-editor-esm:
+        specifier: ^2.0.2
+        version: 2.0.2(monaco-editor@0.52.2)
 
 packages:
 
@@ -2029,6 +2035,11 @@ packages:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
     hasBin: true
 
+  vite-plugin-monaco-editor-esm@2.0.2:
+    resolution: {integrity: sha512-XVkOpL/r0rw1NpbO30vUwG4S0THkC9KB1vjjV8olGd49h4/EQsKl3DrxB6KRDwyZNC9mKiiZgk2L6njUYj3oKQ==}
+    peerDependencies:
+      monaco-editor: '>=0.33.0'
+
   vite-plugin-monaco-editor@1.1.0:
     resolution: {integrity: sha512-IvtUqZotrRoVqwT0PBBDIZPNraya3BxN/bfcNfnxZ5rkJiGcNtO5eAOWWSgT7zullIAEqQwxMU83yL9J5k7gww==}
     peerDependencies:
@@ -3910,6 +3921,10 @@ snapshots:
       '@types/react': 19.1.11
 
   uuid@11.1.0: {}
+
+  vite-plugin-monaco-editor-esm@2.0.2(monaco-editor@0.52.2):
+    dependencies:
+      monaco-editor: 0.52.2
 
   vite-plugin-monaco-editor@1.1.0(monaco-editor@0.52.2):
     dependencies:

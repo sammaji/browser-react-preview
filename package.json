@@ -38,6 +38,7 @@
     "@babel/types": "^7.28.2",
     "@eslint/js": "^9.33.0",
     "@types/babel__core": "^7.20.5",
+    "@types/babel__traverse": "^7.28.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
@@ -50,6 +51,7 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
-    "vite-plugin-monaco-editor": "^1.1.0"
+    "vite-plugin-monaco-editor": "^1.1.0",
+    "vite-plugin-monaco-editor-esm": "^2.0.2"
   }
 }
