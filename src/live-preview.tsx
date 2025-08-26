@@ -159,7 +159,7 @@ const injectPreview = ({ types: t }: { types: typeof Babel.types }): PluginObj =
     };
 };
 
-export function LivePreview({ code }: { code: string }) {
+export function LivePreview({ files, entryPoint }: { files: Record<string, string>, entryPoint: string }) {
     const [Component, setComponent] = useState<React.ComponentType | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -229,37 +229,140 @@ export function LivePreview({ code }: { code: string }) {
     }, [selectedElement, deselectElement]);
 
     useEffect(() => {
-        const transpileAndRender = () => {
+        let styleTags: HTMLStyleElement[] = [];
+        const debounceTimeout = setTimeout(() => {
+            styleTags.forEach(tag => tag.remove());
+            styleTags = [];
+
+            const moduleCache: Record<string, any> = {};
+
+            const injectCss = (path: string, cssContent: string) => {
+                const style = document.createElement('style');
+                style.setAttribute('type', 'text/css');
+                style.setAttribute('data-path', path);
+                style.textContent = cssContent;
+                document.head.appendChild(style);
+                styleTags.push(style);
+            };
+
+            const aliases: Record<string, string> = { '@/': 'src/' };
+
+            const resolvePath = (currentPath: string, requestedPath: string): string => {
+                let path = requestedPath;
+                for (const alias in aliases) {
+                    if (path.startsWith(alias)) {
+                        path = path.replace(alias, aliases[alias]);
+                        break;
+                    }
+                }
+
+                if (path.startsWith('./') || path.startsWith('../')) {
+                    const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                    const pathParts = (currentDir + '/' + path).split('/');
+                    const resolvedParts: string[] = [];
+                    for (const part of pathParts) {
+                        if (part === '..') {
+                            if (resolvedParts.length > 0) {
+                                resolvedParts.pop();
+                            }
+                        } else if (part !== '.' && part !== '') {
+                            resolvedParts.push(part);
+                        }
+                    }
+                    path = resolvedParts.join('/');
+                }
+
+                if (files[path]) {
+                    return path;
+                }
+
+                const extensions = ['.tsx', '.ts', '.jsx', '.js'];
+
+                for (const ext of extensions) {
+                    if (files[path + ext]) {
+                        return path + ext;
+                    }
+                }
+
+                for (const ext of extensions) {
+                    const indexPath = path.endsWith('/') ? path + 'index' : path + '/index';
+                    if (files[indexPath + ext]) {
+                        return indexPath + ext;
+                    }
+                }
+
+                return path;
+            };
+
+            const evaluateCode = (path: string): any => {
+                if (moduleCache[path]) {
+                    return moduleCache[path].exports;
+                }
+
+                const code = files[path];
+                if (code === undefined) {
+                    throw new Error(`Module not found: ${path}. Available files: ${Object.keys(files).join(', ')}`);
+                }
+
+                if (path.endsWith('.css')) {
+                    injectCss(path, code);
+                    const cssModule = { exports: {} };
+                    moduleCache[path] = cssModule;
+                    return cssModule.exports;
+                }
+
+                const customRequire = (requestedPath: string) => {
+                    if (requestedPath === 'react') {
+                        return React;
+                    }
+                    const resolvedPath = resolvePath(path, requestedPath);
+                    return evaluateCode(resolvedPath);
+                };
+
+                try {
+                    const transformedCode = Babel.transform(code, {
+                        presets: ['react', 'typescript'],
+                        filename: path,
+                        plugins: [
+                            injectDataId,
+                            injectPreview,
+                            'transform-modules-commonjs'
+                        ]
+                    }).code;
+
+                    const exports = {};
+                    const module = { exports };
+
+                    if (transformedCode) {
+                        new Function('require', 'module', 'exports', 'React', 'showTooltip', 'hideTooltip', 'selectElement', transformedCode)(
+                            customRequire,
+                            module,
+                            exports,
+                            React,
+                            (...args: any[]) => showTooltipRef.current(...args),
+                            (...args: any[]) => hideTooltipRef.current(...args),
+                            (...args: any[]) => selectElementRef.current(...args)
+                        );
+                    }
+
+                    moduleCache[path] = module;
+                    return module.exports;
+
+                } catch (err) {
+                    console.error(`Error evaluating ${path}:`, err);
+                    throw err;
+                }
+            };
+
             try {
-                const transformedCode = Babel.transform(code, {
-                    presets: ['react'],
-                    plugins: [
-                        injectDataId,
-                        injectPreview,
-                        'transform-modules-commonjs'
-                    ]
-                }).code;
-
-                const exports: { default: React.ComponentType | null } = { default: null };
-                const module = { exports };
-
-                if (!transformedCode) return;
-
-                new Function('React', 'module', 'exports', 'showTooltip', 'hideTooltip', 'selectElement', transformedCode)(
-                    React,
-                    module,
-                    exports,
-                    (...args: any[]) => showTooltipRef.current(...args),
-                    (...args: any[]) => hideTooltipRef.current(...args),
-                    (...args: any[]) => selectElementRef.current(...args)
-                );
-                const RenderedComponent = module.exports.default;
+                const entryModule = evaluateCode(entryPoint);
+                const RenderedComponent = entryModule.default;
 
                 if (typeof RenderedComponent === 'function' || (typeof RenderedComponent === 'object' && RenderedComponent !== null)) {
                     setComponent(() => RenderedComponent);
                     setError(null);
                 } else {
-                    throw new Error("The code must export a default React component.");
+                    throw new Error(`The entry point '${entryPoint}' must export a default React component.`);
                 }
             }
             catch (err: unknown) {
@@ -271,12 +374,13 @@ export function LivePreview({ code }: { code: string }) {
                 }
                 setComponent(null);
             }
+        }, 500);
+
+        return () => {
+            clearTimeout(debounceTimeout);
+            styleTags.forEach(tag => tag.remove());
         };
-
-        const debounceTimeout = setTimeout(transpileAndRender, 500);
-        return () => clearTimeout(debounceTimeout);
-
-    }, [code]);
+    }, [files, entryPoint]);
 
     return (
         <div id='codepreview'>
